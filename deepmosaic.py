@@ -6,6 +6,8 @@ from util import util
 from models import loadmodel
 
 opt = Options().getparse(test_flag = True)
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 if not os.path.isdir(opt.temp_dir):
     util.file_init(opt)
 
