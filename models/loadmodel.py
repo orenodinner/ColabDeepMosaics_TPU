@@ -55,12 +55,12 @@ def video(opt):
     show_paramsnumber(netG,'netG')
     #確認
     for name, module in model.named_modules():
-    print('名前')
-    print(name)
-    sd = model.state_dict()
+        print('名前')
+        print(name)
+        sd = model.state_dict()
     for key in sd:
-    print('キー')
-    print(key)
+        print('キー')
+        print(key)
     #
 
     netG.load_state_dict(torch.load(opt.model_path))
