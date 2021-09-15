@@ -53,7 +53,9 @@ def style(opt):
 def video(opt):
     netG = video_G(N=2,n_blocks=4,gpu_id=opt.gpu_id)
     show_paramsnumber(netG,'netG')
+    print('OPT',opt)
     #確認
+    '''
     for name, module in opt.named_modules():
         print('名前')
         print(name)
@@ -61,7 +63,7 @@ def video(opt):
     for key in sd:
         print('キー')
         print(key)
-    #
+    #'''
 
     netG.load_state_dict(torch.load(opt.model_path))
     netG = model_util.todevice(netG,opt.gpu_id)
