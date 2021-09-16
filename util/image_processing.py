@@ -261,7 +261,7 @@ def replace_mosaic(img_origin,img_fake,mask,x,y,size,no_father):
         RGB_fake = img_fake.mean(0).mean(0)
         for i in range(3):img_fake[:,:,i] = np.clip(img_fake[:,:,i]+RGB_origin[i]-RGB_fake[i],0,255)      
         #eclosion
-        eclosion_num = int(size/5)
+        eclosion_num = int(size/10)+2
         entad = int(eclosion_num/2+2)
 
         # mask = np.zeros(img_origin.shape, dtype='uint8')
