@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 import random
-from threading import Thread
 
 import platform
 
@@ -9,14 +8,23 @@ system_type = 'Linux'
 if 'Windows' in platform.platform():
     system_type = 'Windows'
 
-def imread(file_path,mod = 'normal',loadsize = 0, rgb=False):
+DCT_Q = np.array([[8,16,19,22,26,27,29,34],
+                [16,16,22,24,27,29,34,37],
+                [19,22,26,27,29,34,34,38],
+                [22,22,26,27,29,34,37,40],
+                [22,26,27,29,32,35,40,48],
+                [26,27,29,32,35,40,48,58],
+                [26,27,29,34,38,46,56,59],
+                [27,29,35,38,46,56,69,83]])
+
+def imread(file_path,mod = 'normal',loadsize = 0):
     '''
     mod:  'normal' | 'gray' | 'all'
     loadsize: 0->original
     '''
     if system_type == 'Linux':
         if mod == 'normal':
-            img = cv2.imread(file_path,1)
+            img = cv2.imread(file_path)
         elif mod == 'gray':
             img = cv2.imread(file_path,0)
         elif mod == 'all':
@@ -25,37 +33,25 @@ def imread(file_path,mod = 'normal',loadsize = 0, rgb=False):
     #In windows, for chinese path, use cv2.imdecode insteaded.
     #It will loss EXIF, I can't fix it
     else: 
-        if mod == 'normal':
-            img = cv2.imdecode(np.fromfile(file_path,dtype=np.uint8),1)
-        elif mod == 'gray':
+        if mod == 'gray':
             img = cv2.imdecode(np.fromfile(file_path,dtype=np.uint8),0)
-        elif mod == 'all':
+        else:
             img = cv2.imdecode(np.fromfile(file_path,dtype=np.uint8),-1)
-            
+    
     if loadsize != 0:
         img = resize(img, loadsize, interpolation=cv2.INTER_CUBIC)
 
-    if rgb and img.ndim==3:
-        img = img[:,:,::-1]
-
     return img
 
-def imwrite(file_path,img,use_thread=False):
+def imwrite(file_path,img):
     '''
     in other to save chinese path images in windows,
     this fun just for save final output images
     '''
-    def subfun(file_path,img):
-        if system_type == 'Linux':
-            cv2.imwrite(file_path, img)
-        else:
-            cv2.imencode('.jpg', img)[1].tofile(file_path)
-    if use_thread:
-        t = Thread(target=subfun,args=(file_path, img,))
-        t.daemon()
-        t.start
+    if system_type == 'Linux':
+        cv2.imwrite(file_path, img)
     else:
-        subfun(file_path,img)
+        cv2.imencode('.jpg', img)[1].tofile(file_path)
 
 def resize(img,size,interpolation=cv2.INTER_LINEAR):
     '''
@@ -83,7 +79,7 @@ def ch_one2three(img):
     res = cv2.merge([img, img, img])
     return res
 
-def color_adjust(img,alpha=0,beta=0,b=0,g=0,r=0,ran = False):
+def color_adjust(img,alpha=1,beta=0,b=0,g=0,r=0,ran = False):
     '''
     g(x) = (1+α)g(x)+255*β, 
     g(x) = g(x[:+b*255,:+g*255,:+r*255])
@@ -112,12 +108,6 @@ def color_adjust(img,alpha=0,beta=0,b=0,g=0,r=0,ran = False):
     
     return (np.clip(img,0,255)).astype('uint8')
 
-def CAdaIN(src,dst):
-    '''
-    make src has dst's style
-    '''
-    return np.std(dst)*((src-np.mean(src))/np.std(src))+np.mean(dst)
-
 def makedataset(target_image,orgin_image):
     target_image = resize(target_image,256)
     orgin_image = resize(orgin_image,256)
@@ -126,6 +116,61 @@ def makedataset(target_image,orgin_image):
     img[0:256,0:256] = target_image[0:256,int(w/2-256/2):int(w/2+256/2)]
     img[0:256,256:512] = orgin_image[0:256,int(w/2-256/2):int(w/2+256/2)]
     return img
+
+def spiltimage(img,size = 128):
+    h, w = img.shape[:2]
+    # size = min(h,w)
+    if w >= h:
+        img1 = img[:,0:size]
+        img2 = img[:,w-size:w]
+    else:
+        img1 = img[0:size,:]
+        img2 = img[h-size:h,:]
+
+    return img1,img2
+
+def mergeimage(img1,img2,orgin_image,size = 128):
+    h, w = orgin_image.shape[:2]
+    new_img1 = np.zeros((h,w), dtype = "uint8")
+    new_img2 = np.zeros((h,w), dtype = "uint8")
+
+    # size = min(h,w)
+    if w >= h:
+        new_img1[:,0:size]=img1
+        new_img2[:,w-size:w]=img2
+    else:
+        new_img1[0:size,:]=img1
+        new_img2[h-size:h,:]=img2
+    result_img = cv2.add(new_img1,new_img2)
+    return result_img
+
+def block_dct_and_idct(g,QQF):
+    T = cv2.dct(g)
+    IT = np.round(cv2.idct(np.round(np.round(16.0*T/QQF)*QQF/16)))
+    return IT
+
+def image_dct_and_idct(I,QF):
+    h,w = I.shape
+    QQF = DCT_Q*QF
+    for i in range(int(h/8)):
+        for j in range(int(w/8)):
+            I[i*8:(i+1)*8,j*8:(j+1)*8] = block_dct_and_idct(I[i*8:(i+1)*8,j*8:(j+1)*8],QQF)
+    return I
+
+def dctblur(img,Q):
+    '''
+    Q: 1~20, 1->best
+    '''
+    h,w = img.shape[:2]
+    img[:8*int(h/8),:8*int(w/8)]
+    img = img.astype(np.float32)
+    if img.ndim == 2:
+        img = image_dct_and_idct(img, Q)
+    if img.ndim == 3:
+        h,w,ch = img.shape
+        for i in range(ch):
+            img[:,:,i] = image_dct_and_idct(img[:,:,i], Q)
+    return (np.clip(img,0,255)).astype(np.uint8)
     
 def find_mostlikely_ROI(mask):
     contours,hierarchy=cv2.findContours(mask, cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)
@@ -192,30 +237,6 @@ def mask_area(mask):
         area = 0
     return area
 
-def replace_mosaic(img_origin,img_fake,mask,x,y,size,no_feather):
-    img_fake = cv2.resize(img_fake,(size*2,size*2),interpolation=cv2.INTER_CUBIC)
-    if no_feather:
-        img_origin[y-size:y+size,x-size:x+size]=img_fake
-        return img_origin
-    else:
-        # #color correction
-        # RGB_origin = img_origin[y-size:y+size,x-size:x+size].mean(0).mean(0)
-        # RGB_fake = img_fake.mean(0).mean(0)
-        # for i in range(3):img_fake[:,:,i] = np.clip(img_fake[:,:,i]+RGB_origin[i]-RGB_fake[i],0,255)
-        #eclosion
-        eclosion_num = int(size/10)+2
-
-        mask_crop = cv2.resize(mask,(img_origin.shape[1],img_origin.shape[0]))[y-size:y+size,x-size:x+size]
-        mask_crop = ch_one2three(mask_crop)
-
-        mask_crop = (cv2.blur(mask_crop, (eclosion_num, eclosion_num)))
-        mask_crop = mask_crop/255.0
-
-        img_crop = img_origin[y-size:y+size,x-size:x+size]
-        img_origin[y-size:y+size,x-size:x+size] = np.clip((img_crop*(1-mask_crop)+img_fake*mask_crop),0,255).astype('uint8')
-        
-        return img_origin
-
 
 def Q_lapulase(resImg):
     '''
@@ -229,25 +250,33 @@ def Q_lapulase(resImg):
     score = res.var()
     return score
 
-def psnr(img1,img2):
-    mse = np.mean((img1/255.0-img2/255.0)**2)
-    if mse < 1e-10:
-        return 100
-    psnr_v = 20*np.log10(1/np.sqrt(mse))
-    return psnr_v
+def replace_mosaic(img_origin,img_fake,mask,x,y,size,no_father):
+    img_fake = cv2.resize(img_fake,(size*2,size*2),interpolation=cv2.INTER_LANCZOS4)
+    if no_father:
+        img_origin[y-size:y+size,x-size:x+size]=img_fake
+        img_result = img_origin
+    else:
+        #color correction
+        RGB_origin = img_origin[y-size:y+size,x-size:x+size].mean(0).mean(0)
+        RGB_fake = img_fake.mean(0).mean(0)
+        for i in range(3):img_fake[:,:,i] = np.clip(img_fake[:,:,i]+RGB_origin[i]-RGB_fake[i],0,255)      
+        #eclosion
+        eclosion_num = int(size/10)+2
+        entad = int(eclosion_num/2+2)
 
-def splice(imgs,splice_shape):
-    '''Stitching multiple images, all imgs must have the same size
-    imgs : [img1,img2,img3,img4]
-    splice_shape: (2,2)
-    '''
-    h,w,ch = imgs[0].shape
-    output = np.zeros((h*splice_shape[0],w*splice_shape[1],ch),np.uint8)
-    cnt = 0
-    for i in range(splice_shape[0]):
-        for j in range(splice_shape[1]):
-            if cnt < len(imgs):
-                output[h*i:h*(i+1),w*j:w*(j+1)] = imgs[cnt]
-                cnt += 1
-    return output
+        # mask = np.zeros(img_origin.shape, dtype='uint8')
+        # mask = cv2.rectangle(mask,(x-size+entad,y-size+entad),(x+size-entad,y+size-entad),(255,255,255),-1)
+        mask = cv2.resize(mask,(img_origin.shape[1],img_origin.shape[0]))
+        mask = ch_one2three(mask)
+        
+        mask = (cv2.blur(mask, (eclosion_num, eclosion_num)))
+        mask_tmp = np.zeros_like(mask)
+        mask_tmp[y-size:y+size,x-size:x+size] = mask[y-size:y+size,x-size:x+size]# Fix edge overflow
+        mask = mask_tmp/255.0
 
+        img_tmp = np.zeros(img_origin.shape)
+        img_tmp[y-size:y+size,x-size:x+size]=img_fake
+        img_result = img_origin.copy()
+        img_result = (img_origin*(1-mask)+img_tmp*mask).astype('uint8')
+
+    return img_result
