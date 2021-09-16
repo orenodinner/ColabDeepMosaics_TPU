@@ -141,9 +141,6 @@ dataset/
 test*
 video_tmp/
 result/
-nohup.out
-.vscode/
-
 #./
 /pix2pix
 /pix2pixHD
@@ -158,7 +155,6 @@ nohup.out
 /deepmosaic_window
 /sftp-config.json
 /exe
-
 #./make_datasets
 /make_datasets/video
 /make_datasets/tmp
@@ -174,7 +170,6 @@ nohup.out
 #mediafile
 *iter
 *.pth
-*.pt
 *.jpeg
 *.bmp
 *.mp4
@@ -187,40 +182,3 @@ nohup.out
 *.MP4
 *.JPEG
 *.exe
-*.npy
-*.psd
-
-
-##############################cpp###################################
-# Prerequisites
-*.d
-
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.obj
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
-*.exe
-*.out
-*.app

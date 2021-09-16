@@ -1,7 +1,4 @@
-import json
 import os
-import random
-import string
 import shutil
 
 def Traversal(filedir):
@@ -12,9 +9,6 @@ def Traversal(filedir):
         for dir in dirs:
             Traversal(dir)
     return file_list
-
-def randomstr(num):
-    return ''.join(random.sample(string.ascii_letters + string.digits, num))
 
 def is_img(path):
     ext = os.path.splitext(path)[1]
@@ -53,24 +47,12 @@ def is_dirs(paths):
             tmp.append(path)
     return tmp  
 
-def writelog(path,log,isprint=False):
+def  writelog(path,log,isprint=False):
     f = open(path,'a+')
     f.write(log+'\n')
     f.close()
     if isprint:
         print(log)
-
-def savejson(path,data_dict):
-    json_str = json.dumps(data_dict)
-    f = open(path,'w+')
-    f.write(json_str)
-    f.close()
-
-def loadjson(path):
-    f = open(path, 'r')
-    txt_data = f.read()
-    f.close()
-    return json.loads(txt_data)
 
 def makedirs(path):
     if os.path.isdir(path):
@@ -79,48 +61,33 @@ def makedirs(path):
         os.makedirs(path)
         print('makedir:',path)
 
-def clean_tempfiles(opt,tmp_init=True):
-    tmpdir = opt.temp_dir
-    if os.path.isdir(tmpdir): 
-        print('Clean temp...')  
-        shutil.rmtree(tmpdir)
+def clean_tempfiles(tmp_init=True):
+    if os.path.isdir('./tmp'):   
+        shutil.rmtree('./tmp')
     if tmp_init:
-        os.makedirs(tmpdir)
-        os.makedirs(os.path.join(tmpdir, 'video2image'))
-        os.makedirs(os.path.join(tmpdir, 'addmosaic_image'))
-        os.makedirs(os.path.join(tmpdir, 'replace_mosaic'))
-        os.makedirs(os.path.join(tmpdir, 'mosaic_mask'))
-        os.makedirs(os.path.join(tmpdir, 'ROI_mask'))
-        os.makedirs(os.path.join(tmpdir, 'style_transfer'))
-        # make dataset
-        os.makedirs(os.path.join(tmpdir, 'mosaic_crop'))
-        os.makedirs(os.path.join(tmpdir, 'ROI_mask_check'))
- 
+        os.makedirs('./tmp')
+        os.makedirs('./tmp/video2image')
+        os.makedirs('./tmp/addmosaic_image')
+        os.makedirs('./tmp/mosaic_crop')
+        os.makedirs('./tmp/replace_mosaic')
+        os.makedirs('./tmp/mosaic_mask')
+        os.makedirs('./tmp/ROI_mask')
+        os.makedirs('./tmp/ROI_mask_check')
+        os.makedirs('./tmp/style_transfer')
+
 def file_init(opt):
     if not os.path.isdir(opt.result_dir):
         os.makedirs(opt.result_dir)
         print('makedir:',opt.result_dir)
-    clean_tempfiles(opt,True)
+    clean_tempfiles(True)
 
 def second2stamp(s):
     h = int(s/3600)
     s = int(s%3600)
     m = int(s/60)
     s = int(s%60)
+
     return "%02d:%02d:%02d" % (h, m, s)
-
-def stamp2second(stamp):
-    substamps = stamp.split(':')
-    return int(substamps[0])*3600 + int(substamps[1])*60 + int(substamps[2])
-
-
-def counttime(start_time,current_time,now_num,all_num):
-    '''
-    start_time,current_time: time.time()
-    '''
-    used_time = int(current_time-start_time)
-    all_time = int(used_time/now_num*all_num)
-    return second2stamp(used_time)+'/'+second2stamp(all_time)
 
 def get_bar(percent,num = 25):
     bar = '['
@@ -130,7 +97,7 @@ def get_bar(percent,num = 25):
         else:
             bar += '-'
     bar += ']'
-    return bar+' '+"%.2f"%percent+'%'
+    return bar+' '+str(round(percent,2))+'%'
 
 def copyfile(src,dst):
     try:
